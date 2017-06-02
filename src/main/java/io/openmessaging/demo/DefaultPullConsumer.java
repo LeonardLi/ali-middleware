@@ -29,6 +29,7 @@ public class DefaultPullConsumer implements PullConsumer {
 
 
     @Override public synchronized Message poll() {
+        //Todo:
         if (buckets.size() == 0 || queue == null) {
             return null;
         }
@@ -55,6 +56,8 @@ public class DefaultPullConsumer implements PullConsumer {
     }
 
     @Override public synchronized void attachQueue(String queueName, Collection<String> topics) {
+        //Todo:
+
         if (queue != null && !queue.equals(queueName)) {
             throw new ClientOMSException("You have alreadly attached to a queue " + queue);
         }
