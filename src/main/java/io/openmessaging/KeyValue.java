@@ -127,4 +127,6 @@ public interface KeyValue {
      * otherwise.
      */
     boolean containsKey(String key);
+    
+    String get(String key);
 }

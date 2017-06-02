@@ -47,7 +47,7 @@ public class MessageStore {
         BufferedWriter bw =  writerBuckets.get(name);
         try{
             if (bw == null){
-                File file = new File(DefaultProducer.properties.getString("STORE_PATH")+"/"+name);
+                File file = new File(properties.getString("STORE_PATH")+"/"+name);
                 if(!file.exists()){
                     file.createNewFile();
                 }
@@ -67,41 +67,100 @@ public class MessageStore {
     }
 
     private String messageToString(DefaultBytesMessage message){
-        String result= "";
+        StringBuffer result= new StringBuffer();
 
         for(String key: message.headers().keySet()){
-            result+=(key+":"+message.headers().getString(key)+",");
+            result.append(key+":"+message.headers().get(key)+",");
         }
-        result+=";";
+        result.append(";");
 
         if(message.properties()!=null){
             for(String key: message.properties().keySet()){
-                result+=(key+":"+message.properties().getString(key)+",");
+                result.append(key+":"+message.properties().get(key)+",");
             }
         }
-        result+=";";
+        result.append(";");
 
-        result+= new String(message.getBody());
-        return result;
+        result.append(new String(message.getBody()));
+        return result.toString();
     }
 
-   public synchronized Message pullMessage(String queue, String bucket) {
-        ArrayList<Message> bucketList = messageBuckets.get(bucket);
-        if (bucketList == null) {
-            return null;
+    private Message stringToMessage(String line){
+        String[] segments = line.split(";");
+        DefaultBytesMessage message =  new DefaultBytesMessage(segments[2].getBytes());
+
+
+        String[] headerKvs= null;
+        String[] propertiesKvs = null;
+        if(!segments[0].equals("")){
+            headerKvs = segments[0].split(",");
         }
-        HashMap<String, Integer> offsetMap = queueOffsets.get(queue);
-        if (offsetMap == null) {
-            offsetMap = new HashMap<>();
-            queueOffsets.put(queue, offsetMap);
+        if(!segments[1].equals("")) {
+            propertiesKvs = segments[1].split(",");
         }
-        int offset = offsetMap.getOrDefault(bucket, 0);
-        if (offset >= bucketList.size()) {
-            return null;
+        if(headerKvs!=null){
+            for(String kvs : headerKvs){
+                String[] kv = kvs.split(":");
+                message.putHeaders(kv[0],kv[1]);
+            }
         }
-        Message message = bucketList.get(offset);
-        offsetMap.put(bucket, ++offset);
+
+        if(propertiesKvs!= null){
+            for(String kvs : propertiesKvs){
+                String[] kv = kvs.split(":");
+                message.putProperties(kv[0],kv[1]);
+            }
+        }
         return message;
+    }
+
+    private HashMap <String,HashMap<String,BufferedReader>> allThreadReaders = new HashMap<>();
+   public  Message pullMessage(String queue, String bucket) {
+       HashMap<String,BufferedReader> readers = allThreadReaders.get(queue);
+       if(readers == null){
+           readers = new HashMap<>();
+           allThreadReaders.put(queue,readers);
+       }
+       BufferedReader bf = readers.get(queue);
+       String line = null;
+       try{
+           if(bf == null){
+               File file = new File(properties.getString("STORE_PATH")+"/"+queue);
+               bf = new BufferedReader(new FileReader(file));
+               readers.put(queue,bf);
+           }
+       } catch (FileNotFoundException e){
+           e.printStackTrace();
+       }
+        try {
+            line = bf.readLine();
+        } catch (IOException e){
+           e.printStackTrace();
+        }
+
+        if(line != null && !line.equals("")){
+            return stringToMessage(line); //String to message
+        }
+       return null;
+
+//        ArrayList<Message> bucketList = messageBuckets.get(bucket);
+//        if (bucketList == null) {
+//            return null;
+//        }
+//        HashMap<String, Integer> offsetMap = queueOffsets.get(queue);
+//        if (offsetMap == null) {
+//            offsetMap = new HashMap<>();
+//            queueOffsets.put(queue, offsetMap);
+//        }
+//        int offset = offsetMap.getOrDefault(bucket, 0);
+//        if (offset >= bucketList.size()) {
+//            return null;
+//        }
+//        Message message = bucketList.get(offset);
+//        offsetMap.put(bucket, ++offset);
+//        return message;
+
+
    }
 
    public void flush(){

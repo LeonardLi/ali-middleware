@@ -76,4 +76,9 @@ public class DefaultKeyValue implements KeyValue {
     public boolean containsKey(String key) {
         return false;
     }
+
+    @Override
+    public String get(String key) {
+        return null;
+    }
 }

@@ -1,6 +1,8 @@
 package io.openmessaging.demo;
 
 
+import io.openmessaging.Message;
+
 import java.io.*;
 
 /**
@@ -10,10 +12,14 @@ public class MyTester {
 
     public static void main(String[] args){
         DefaultBytesMessage message = new DefaultBytesMessage("Test".getBytes());
-        message.putHeaders("amount",10);
-        message.putProperties("data","ted");
-        message.setBody("hhhhhhhh".getBytes());
+//        message.putHeaders("amount",10);
+//        message.putProperties("data","ted");
+//        message.setBody("hhhhhhhh".getBytes());
+        message.putHeaders("Queue","QUEUE_0");
+        message.setBody("PRODUCER_7_1".getBytes());
+        //Queue:QUEUE_0,;;PRODUCER_7_1
         String result = messageToString(message);
+        Message message1 = StringToMessage(result);
         String[] results = result.split(";");
 
         try{
@@ -49,17 +55,51 @@ public class MyTester {
 
     }
 
-    public static String messageToString(DefaultBytesMessage message){
-        String result= "";
+     static String messageToString(DefaultBytesMessage message){
+        StringBuffer result= new StringBuffer();
+
         for(String key: message.headers().keySet()){
-            result+=(key+":"+message.headers().getString(key)+",");
+            result.append(key+":"+message.headers().get(key)+",");
         }
-        result+=";";
-        for(String key: message.properties().keySet()){
-            result+=(key+":"+message.properties().getString(key)+",");
+        result.append(";");
+
+        if(message.properties()!=null){
+            for(String key: message.properties().keySet()){
+                result.append(key+":"+message.properties().get(key)+",");
+            }
         }
-        result+=";";
-        result+= new String(message.getBody());
-        return result;
+         result.append(";");
+
+        result.append(new String(message.getBody()));
+        return result.toString();
+    }
+
+    static Message StringToMessage(String line){
+        String[] segments = line.split(";");
+        DefaultBytesMessage message = new DefaultBytesMessage(segments[2].getBytes());
+        String[] headerKvs= null;
+        String[] propertiesKvs = null;
+        if(!segments[0].equals("")){
+           headerKvs = segments[0].split(",");
+        }
+        if(!segments[1].equals("")) {
+            propertiesKvs = segments[1].split(",");
+        }
+
+
+        if(headerKvs!=null){
+            for(String kvs : headerKvs){
+                String[] kv = kvs.split(":");
+                message.putHeaders(kv[0],kv[1]);
+            }
+        }
+
+       if(propertiesKvs!= null){
+           for(String kvs : propertiesKvs){
+               String[] kv = kvs.split(":");
+               message.putProperties(kv[0],kv[1]);
+           }
+       }
+       return message;
     }
 }
