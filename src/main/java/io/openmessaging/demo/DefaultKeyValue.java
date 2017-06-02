@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class DefaultKeyValue implements KeyValue,Serializable{
+public class DefaultKeyValue implements KeyValue {
 
     private final Map<String, Object> kvs = new HashMap<>();
     @Override
@@ -51,7 +51,11 @@ public class DefaultKeyValue implements KeyValue,Serializable{
 
     @Override
     public String getString(String key) {
-        return (String)kvs.getOrDefault(key, null);
+        return (String)kvs.getOrDefault(key, null) ;
+    }
+
+    public String get(String key){
+        return String.valueOf(kvs.getOrDefault(key, null)) ;
     }
 
     @Override
@@ -63,4 +67,5 @@ public class DefaultKeyValue implements KeyValue,Serializable{
     public boolean containsKey(String key) {
         return kvs.containsKey(key);
     }
+
 }

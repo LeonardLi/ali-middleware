@@ -20,7 +20,7 @@ public class MessageStore {
 
     private ThreadLocal<HashMap<String,ObjectInputStream>> readerBuckets = new ThreadLocal<>();
 
-    private HashMap<String,ObjectOutputStream> writerBuckets = new HashMap<>();
+    private HashMap<String,BufferedWriter> writerBuckets = new HashMap<>();
 
     private Map<String, HashMap<String, Integer>> queueOffsets = new HashMap<>();
 
@@ -44,26 +44,45 @@ public class MessageStore {
 
     private void writeTofile(String name, Message message){
         DefaultBytesMessage message1 = (DefaultBytesMessage) message;
-        ObjectOutputStream outputStream =  writerBuckets.get(name);
+        BufferedWriter bw =  writerBuckets.get(name);
         try{
-            if (outputStream == null){
+            if (bw == null){
                 File file = new File(DefaultProducer.properties.getString("STORE_PATH")+"/"+name);
                 if(!file.exists()){
                     file.createNewFile();
                 }
-                outputStream = new ObjectOutputStream(new FileOutputStream(file));
-                writerBuckets.put(name,outputStream);
+                bw = new BufferedWriter(new FileWriter(file));
+                writerBuckets.put(name,bw);
             }
         } catch(IOException e){
             e.printStackTrace();
         }
 
         try {
-            outputStream.writeObject(message1);
+            bw.write(messageToString(message1)+"\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+    }
+
+    private String messageToString(DefaultBytesMessage message){
+        String result= "";
+
+        for(String key: message.headers().keySet()){
+            result+=(key+":"+message.headers().getString(key)+",");
+        }
+        result+=";";
+
+        if(message.properties()!=null){
+            for(String key: message.properties().keySet()){
+                result+=(key+":"+message.properties().getString(key)+",");
+            }
+        }
+        result+=";";
+
+        result+= new String(message.getBody());
+        return result;
     }
 
    public synchronized Message pullMessage(String queue, String bucket) {

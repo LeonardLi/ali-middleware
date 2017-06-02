@@ -6,7 +6,7 @@ import io.openmessaging.Message;
 
 import java.io.Serializable;
 
-public class DefaultBytesMessage implements BytesMessage, Serializable {
+public class DefaultBytesMessage implements BytesMessage {
 
     private KeyValue headers = new DefaultKeyValue();
     private KeyValue properties;
