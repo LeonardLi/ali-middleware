@@ -59,13 +59,13 @@ public class MyTester {
         StringBuffer result= new StringBuffer();
 
         for(String key: message.headers().keySet()){
-            result.append(key+":"+message.headers().get(key)+",");
+           //result.append(key+":"+message.headers().get(key)+",");
         }
         result.append(";");
 
         if(message.properties()!=null){
             for(String key: message.properties().keySet()){
-                result.append(key+":"+message.properties().get(key)+",");
+                //result.append(key+":"+message.properties().get(key)+",");
             }
         }
          result.append(";");
