@@ -22,9 +22,8 @@ public class DefaultProducer implements Producer {
 
     public DefaultProducer(KeyValue properties) {
         this.properties = properties;
-        messageStore.setProperties(properties);
+        MessageStore.getInstance().setProperties(properties);
     }
-
 
     @Override public BytesMessage createBytesMessageToTopic(String topic, byte[] body) {
         //Todo

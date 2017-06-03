@@ -8,23 +8,26 @@ import java.util.*;
 
 public class DefaultPullConsumer implements PullConsumer {
     private MessageStore messageStore = MessageStore.getInstance();
-    private KeyValue properties;
+    static KeyValue properties;
     private String queue;
     private Set<String> buckets = new HashSet<>();
     private List<String> bucketList = new LinkedList<>();
 
     private int lastIndex = 0;
 
-    public DefaultPullConsumer(KeyValue properties) {
-        this.properties = properties;
-        messageStore.setProperties(properties);
+    public KeyValue getProperties() {
+        return properties;
     }
 
+    public DefaultPullConsumer(KeyValue properties) {
+        this.properties = properties;
+        MessageStore.getInstance().setProperties(properties);
+        MessageStore.getInstance().initFileArray();
+    }
 
     @Override public KeyValue properties() {
         return properties;
     }
-
 
     @Override public Message poll() {
         //Todo:

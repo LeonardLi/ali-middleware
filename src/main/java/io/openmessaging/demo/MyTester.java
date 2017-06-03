@@ -59,13 +59,13 @@ public class MyTester {
         StringBuffer result= new StringBuffer();
 
         for(String key: message.headers().keySet()){
-           //result.append(key+":"+message.headers().get(key)+",");
+           result.append(key+":"+((DefaultKeyValue)message.headers()).get(key)+",");
         }
         result.append(";");
 
         if(message.properties()!=null){
             for(String key: message.properties().keySet()){
-                //result.append(key+":"+message.properties().get(key)+",");
+                result.append(key+":"+((DefaultKeyValue)message.properties()).get(key)+",");
             }
         }
          result.append(";");
@@ -76,30 +76,27 @@ public class MyTester {
 
     static Message StringToMessage(String line){
         String[] segments = line.split(";");
-        DefaultBytesMessage message = new DefaultBytesMessage(segments[2].getBytes());
+        DefaultBytesMessage message = new DefaultBytesMessage();
         String[] headerKvs= null;
         String[] propertiesKvs = null;
-        if(!segments[0].equals("")){
-           headerKvs = segments[0].split(",");
-        }
-        if(!segments[1].equals("")) {
+
+        //必然有header故不再检验
+        headerKvs = segments[0].split(",");
+
+        if(segments[1]!=null && segments[1].length()!= 0) {
             propertiesKvs = segments[1].split(",");
         }
-
-
-        if(headerKvs!=null){
-            for(String kvs : headerKvs){
-                String[] kv = kvs.split(":");
-                message.putHeaders(kv[0],kv[1]);
-            }
+        for(String kvs : headerKvs){
+            String[] kv = kvs.split(":");
+            message.putHeaders(kv[0],kv[1]);
         }
-
-       if(propertiesKvs!= null){
+        if(propertiesKvs!= null){
            for(String kvs : propertiesKvs){
                String[] kv = kvs.split(":");
                message.putProperties(kv[0],kv[1]);
            }
-       }
+        }
+        if(segments[2]!= null && segments.length!=0) message.setBody(segments[2].getBytes());
        return message;
     }
 }

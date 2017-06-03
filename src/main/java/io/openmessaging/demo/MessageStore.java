@@ -4,9 +4,8 @@ import io.openmessaging.KeyValue;
 import io.openmessaging.Message;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MessageStore {
 
@@ -16,132 +15,104 @@ public class MessageStore {
         return INSTANCE;
     }
 
-    private Map<String, ArrayList<Message>> messageBuckets = new HashMap<>();
+    //每个topic或者queue的实际的文件路径
+    private volatile HashMap<String,List<String>> bucketFiles;
 
-    private ThreadLocal<HashMap<String,ObjectInputStream>> readerBuckets = new ThreadLocal<>();
+    private volatile KeyValue properties;
 
-    private HashMap<String,BufferedWriter> writerBuckets = new HashMap<>();
+    //private Map<String, ArrayList<Message>> messageBuckets = new HashMap<>();
 
-    private Map<String, HashMap<String, Integer>> queueOffsets = new HashMap<>();
+    //private ThreadLocal<HashMap<String,ObjectInputStream>> readerBuckets = new ThreadLocal<>();
 
-    private KeyValue properties;
+    //private Map<String, HashMap<String, Integer>> queueOffsets = new HashMap<>();
 
-    public void setProperties(KeyValue properties) {
-        this.properties = properties;
-    }
+    //写文件锁，可以考虑去掉
+    //private ReentrantLock lock = new ReentrantLock(true);
 
-    public synchronized void putMessage(String bucket, Message message) {
+    //线程独享的用于写文件的writers
+    private ThreadLocal<HashMap<String,BufferedWriter>> writerBuckets = new ThreadLocal<>();
+
+    //线程独享用于读文件的readers
+    private HashMap <String,HashMap<String,List<BufferedReader>>> allThreadReaders = new HashMap<>();
+
+    //落盘函数
+    public void putMessage(String bucket, Message message) {
 //        if (!messageBuckets.containsKey(bucket)) {
 //            messageBuckets.put(bucket, new ArrayList<>(1024));
 //        }
         // in memory
         // ArrayList<Message> bucketList = messageBuckets.get(bucket);
         // bucketList.add(message);
-
-        this.writeTofile(bucket,message);
-
-    }
-
-    private void writeTofile(String name, Message message){
         DefaultBytesMessage message1 = (DefaultBytesMessage) message;
-        BufferedWriter bw =  writerBuckets.get(name);
+        HashMap<String,BufferedWriter> writers = writerBuckets.get();
+        if(writers == null ){
+            writers = new HashMap<>();
+            writerBuckets.set(writers);
+        }
+
+        BufferedWriter bw =  writers.get(bucket);
         try{
             if (bw == null){
-                File file = new File(properties.getString("STORE_PATH")+"/"+name);
+                File file = new File(properties.getString("STORE_PATH")+"/"+bucket+":"+Thread.currentThread().hashCode());
                 if(!file.exists()){
                     file.createNewFile();
                 }
                 bw = new BufferedWriter(new FileWriter(file));
-                writerBuckets.put(name,bw);
+                writers.put(bucket,bw);
             }
         } catch(IOException e){
             e.printStackTrace();
         }
-
         try {
-            bw.write(messageToString(message1)+"\n");
+            String string = messageToString(message1);
+            //System.out.println(string);
+            bw.write(string+"\n");
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+
     }
 
-    private String messageToString(DefaultBytesMessage message){
-        StringBuffer result= new StringBuffer();
-
-        for(String key: message.headers().keySet()){
-            result.append(key+":"+((DefaultKeyValue)message.headers()).get(key)+",");
-        }
-        result.append(";");
-
-        if(message.properties()!=null){
-            for(String key: message.properties().keySet()){
-                result.append(key+":"+((DefaultKeyValue)message.properties()).get(key)+",");
-            }
-        }
-        result.append(";");
-
-        result.append(new String(message.getBody()));
-        return result.toString();
-    }
-
-    private Message stringToMessage(String line){
-        String[] segments = line.split(";");
-        DefaultBytesMessage message =  new DefaultBytesMessage(segments[2].getBytes());
 
 
-        String[] headerKvs= null;
-        String[] propertiesKvs = null;
-        if(!segments[0].equals("")){
-            headerKvs = segments[0].split(",");
-        }
-        if(!segments[1].equals("")) {
-            propertiesKvs = segments[1].split(",");
-        }
-        if(headerKvs!=null){
-            for(String kvs : headerKvs){
-                String[] kv = kvs.split(":");
-                message.putHeaders(kv[0],kv[1]);
-            }
-        }
-
-        if(propertiesKvs!= null){
-            for(String kvs : propertiesKvs){
-                String[] kv = kvs.split(":");
-                message.putProperties(kv[0],kv[1]);
-            }
-        }
-        return message;
-    }
-
-    private HashMap <String,HashMap<String,BufferedReader>> allThreadReaders = new HashMap<>();
-   public  Message pullMessage(String queue, String bucket) {
-       HashMap<String,BufferedReader> readers = allThreadReaders.get(queue);
-       if(readers == null){
-           readers = new HashMap<>();
-           allThreadReaders.put(queue,readers);
-       }
-       BufferedReader bf = readers.get(queue);
-       String line = null;
-       try{
-           if(bf == null){
-               File file = new File(properties.getString("STORE_PATH")+"/"+queue);
-               bf = new BufferedReader(new FileReader(file));
-               readers.put(queue,bf);
-           }
-       } catch (FileNotFoundException e){
-           e.printStackTrace();
-       }
-        try {
-            line = bf.readLine();
-        } catch (IOException e){
-           e.printStackTrace();
-        }
-
-        if(line != null && !line.equals("")){
-            return stringToMessage(line); //String to message
-        }
-       return null;
+    /**
+     * 读盘函数，这里对应落盘的设计是，每个线程持有自己的BufferedReader的Map，自己的Map中key为bucket，value是该bucket的所有文件
+     * 的bufferedreader,以这种方式来实现
+     *
+     * @param queue
+     * @param bucket
+     * @return
+     */
+    public  Message pullMessage(String queue, String bucket) {
+//        HashMap<String,List<BufferedReader>> readers = allThreadReaders.get(queue);
+//        if(readers == null){
+//            readers = new HashMap<>();
+//            allThreadReaders.put(queue,readers);
+//        }
+//
+//        //同一个bucket的所有reader
+//        ArrayList<BufferedReader> bf = (ArrayList<BufferedReader>) readers.get(queue);
+//        String line = null;
+//        try{
+//            if(bf == null){
+//                File file = new File(DefaultPullConsumer.properties.getString("STORE_PATH")+"/"+queue);
+//                bf = new BufferedReader(new FileReader(file));
+//                readers.put(queue,bf);
+//            }
+//        } catch (FileNotFoundException e){
+//            e.printStackTrace();
+//        }
+//        try {
+//            line = bf.readLine();
+//        } catch (IOException e){
+//            e.printStackTrace();
+//        }
+//
+//        if(line != null && !line.equals("")){
+//            return stringToMessage(line); //String to message
+//        }
+        return null;
 
 //        ArrayList<Message> bucketList = messageBuckets.get(bucket);
 //        if (bucketList == null) {
@@ -161,16 +132,89 @@ public class MessageStore {
 //        return message;
 
 
-   }
+    }
 
-   public void flush(){
-        for(String name : writerBuckets.keySet()){
+    public void flush(){
+       HashMap<String,BufferedWriter> writers = writerBuckets.get();
+        for(String name : writers.keySet()){
             try{
-            writerBuckets.get(name).flush();
-            writerBuckets.get(name).close();
+            writers.get(name).flush();
+            writers.get(name).close();
             } catch(IOException e){
                 e.printStackTrace();
             }
         }
-   }
+    }
+    ///////////////////////////消息互转的工具函数
+    private String messageToString(DefaultBytesMessage message){
+        StringBuilder result= new StringBuilder(300);
+        //header不可能为空，必有topic或者queue
+        for(String key: message.headers().keySet()){
+            result.append(key+":"+((DefaultKeyValue)message.headers()).get(key)+",");
+        }
+        result.append(";");
+        //properties可能为空
+        if(message.properties() !=null ){
+            for(String key: message.properties().keySet()){
+                result.append(key+":"+((DefaultKeyValue)message.properties()).get(key)+",");
+            }
+        }
+        result.append(";");
+
+        result.append(new String(message.getBody()));
+        return result.toString();
+    }
+
+    private Message stringToMessage(String line){
+        String[] segments = line.split(";");
+        DefaultBytesMessage message = new DefaultBytesMessage("".getBytes());
+        String[] headerKvs= null;
+        String[] propertiesKvs = null;
+
+        for(int i=0;i<segments.length;i++){
+            if(0 == i){
+                //必然有header故不再检验
+                headerKvs = segments[0].split(",");
+                for(String kvs : headerKvs){
+                    String[] kv = kvs.split(":");
+                    message.putHeaders(kv[0],kv[1]);
+                }
+            }
+            if(1 == i) {
+                if(segments[1]!=null && segments[1].length()!=0){
+                    propertiesKvs = segments[1].split(",");
+                    for(String kvs : propertiesKvs){
+                        String[] kv = kvs.split(":");
+                        message.putProperties(kv[0],kv[1]);
+                    }
+                }
+            }
+            if(2 == i) {
+                message.setBody(segments[2].getBytes());
+            }
+        }
+
+        return message;
+    }
+
+    public void initFileArray(){
+        if(bucketFiles == null){
+
+        }
+        File[] fileArray;
+        File file = new File(DefaultPullConsumer.properties.getString("STORE_PATH"));
+        fileArray = file.listFiles();
+        for (int i= 0;i< fileArray.length;i++){
+            if(fileArray[i].isFile()){
+                fileArray[i].getName();
+
+            }
+        }
+    }
+
+    public  void setProperties(KeyValue properties) {
+        if(this.properties == null){
+            this.properties = properties;
+        }
+    }
 }
