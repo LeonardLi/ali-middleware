@@ -2,6 +2,8 @@ package io.openmessaging.demo;
 
 import io.openmessaging.KeyValue;
 import io.openmessaging.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.lang.reflect.Array;
@@ -9,7 +11,7 @@ import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class MessageStore {
-
+    private Logger logger = LoggerFactory.getLogger(MessageStore.class);
     private static final MessageStore INSTANCE = new MessageStore();
 
     public static MessageStore getInstance() {
@@ -126,9 +128,11 @@ public class MessageStore {
                 line = bf.readLine();
                 //System.out.println(line);
                 if (line == null || line.length() == 0) {
-                    bf.close();
-                    bfs.remove(bf);
+                    continue;
+                    //bf.close();
+                    //bfs.remove(bf);
                 } else {
+                    //logger.error(line);
                     return stringToMessage(line);
                 }
             }catch(IOException e){
