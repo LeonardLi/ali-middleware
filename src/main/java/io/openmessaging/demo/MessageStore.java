@@ -176,13 +176,18 @@ public class MessageStore {
         StringBuilder result= new StringBuilder(300);
         //header不可能为空，必有topic或者queue
         for(String key: message.headers().keySet()){
-            result.append(key+":"+((DefaultKeyValue)message.headers()).get(key)+",");
+            result.append(key)
+                    .append(":")
+                    .append(((DefaultKeyValue)message.headers()).get(key))
+                    .append(",");
         }
         result.append(";");
         //properties可能为空
         if(message.properties() !=null ){
             for(String key: message.properties().keySet()){
-                result.append(key+":"+((DefaultKeyValue)message.properties()).get(key)+",");
+                result.append(key+":")
+                        .append(((DefaultKeyValue)message.properties()).get(key))
+                        .append(",");
             }
         }
         result.append(";");
