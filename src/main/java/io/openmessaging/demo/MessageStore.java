@@ -234,6 +234,7 @@ public class MessageStore {
         for (int i= 0;i< fileArray.length;i++){
             if(fileArray[i].isFile()){
                 String name = fileArray[i].getName();
+                logger.info(name+" Size :"+fileArray[i].length());
                 String []segs =name.split(":");
                 if(bucketFilesNameMap.containsKey(segs[0])){
                     bucketFilesNameMap.get(segs[0]).add(name);
