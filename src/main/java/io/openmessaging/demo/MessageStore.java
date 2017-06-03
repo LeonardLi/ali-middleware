@@ -66,7 +66,8 @@ public class MessageStore {
                 if(!file.exists()){
                     file.createNewFile();
                 }
-                bw = new BufferedWriter(new FileWriter(file));
+                bw = new BufferedWriter(new FileWriter(file),4194304);//4M buffersize
+
                 writers.put(bucket,bw);
             }
         } catch(IOException e){
@@ -234,7 +235,7 @@ public class MessageStore {
         for (int i= 0;i< fileArray.length;i++){
             if(fileArray[i].isFile()){
                 String name = fileArray[i].getName();
-                logger.info(name+" Size :"+fileArray[i].length());
+                //logger.info(name+" Size :"+fileArray[i].length());
                 String []segs =name.split(":");
                 if(bucketFilesNameMap.containsKey(segs[0])){
                     bucketFilesNameMap.get(segs[0]).add(name);
