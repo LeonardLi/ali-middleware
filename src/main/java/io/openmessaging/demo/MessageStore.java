@@ -38,7 +38,11 @@ public class MessageStore {
     //线程独享用于读文件的readers
     private HashMap <String,HashMap<String,List<BufferedReader>>> allThreadReaders = new HashMap<>();
 
-    //落盘函数
+    /**
+     * 落盘函数
+     * @param bucket
+     * @param message
+     */
     public void putMessage(String bucket, Message message) {
 //        if (!messageBuckets.containsKey(bucket)) {
 //            messageBuckets.put(bucket, new ArrayList<>(1024));
@@ -68,7 +72,7 @@ public class MessageStore {
         }
         try {
             String string = messageToString(message1);
-            System.out.println(string);
+            //System.out.println(string);
             bw.write(string+"\n");
         } catch (IOException e) {
             e.printStackTrace();
@@ -76,7 +80,6 @@ public class MessageStore {
 
 
     }
-
 
 
     /**
@@ -121,7 +124,7 @@ public class MessageStore {
             bf = bfs.get(i);
             try {
                 line = bf.readLine();
-                System.out.println(line);
+                //System.out.println(line);
                 if (line == null || line.length() == 0) {
                     bf.close();
                     bfs.remove(bf);
