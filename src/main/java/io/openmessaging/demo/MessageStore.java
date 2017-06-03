@@ -36,7 +36,7 @@ public class MessageStore {
     private ThreadLocal<HashMap<String,BufferedWriter>> writerBuckets = new ThreadLocal<>();
 
     //线程独享用于读文件的readers
-    private ThreadLocal <HashMap<String,List<BufferedReader>>> allThreadReaders = new ThreadLocal<>();
+    private HashMap <String,HashMap<String,List<BufferedReader>>> allThreadReaders = new HashMap<>();
 
     //落盘函数
     public void putMessage(String bucket, Message message) {
@@ -68,7 +68,7 @@ public class MessageStore {
         }
         try {
             String string = messageToString(message1);
-            //System.out.println(string);
+            System.out.println(string);
             bw.write(string+"\n");
         } catch (IOException e) {
             e.printStackTrace();
@@ -89,11 +89,12 @@ public class MessageStore {
      */
     public  Message pullMessage(String queue, String bucket) {
         //同一个线程的所有readers
-        HashMap<String,List<BufferedReader>> readers = allThreadReaders.get();
+        HashMap<String,List<BufferedReader>> readers = allThreadReaders.get(queue);
         if(readers == null){
             readers = new HashMap<>();
-            allThreadReaders.set(readers);
+            allThreadReaders.put(queue,readers);
         }
+
 
         //获取某一个bucket的所有bufferedreader
         ArrayList<BufferedReader> bfs = (ArrayList<BufferedReader>) readers.get(bucket);
@@ -111,6 +112,7 @@ public class MessageStore {
                     e.printStackTrace();
                 }
             }
+            readers.put(bucket,bfs);
         }
 
         BufferedReader bf;
@@ -119,6 +121,7 @@ public class MessageStore {
             bf = bfs.get(i);
             try {
                 line = bf.readLine();
+                System.out.println(line);
                 if (line == null || line.length() == 0) {
                     bf.close();
                     bfs.remove(bf);
