@@ -1,7 +1,9 @@
 package io.openmessaging.demo;
 
 
+import io.openmessaging.KeyValue;
 import io.openmessaging.Message;
+import io.openmessaging.tester.Constants;
 
 import java.io.*;
 
@@ -23,35 +25,16 @@ public class MyTester {
         String[] results = result.split(";");
 
         try{
-            File file = new File("test.dat");
-            if(!file.exists()){
-                file.createNewFile();
-            }
+            Class kvClass = Class.forName("io.openmessaging.demo.DefaultKeyValue");
+            KeyValue keyValue = (KeyValue) kvClass.newInstance();
+            keyValue.put("STORE_PATH", Constants.STORE_PATH);
+            DefaultPullConsumer consumer = new DefaultPullConsumer(keyValue);
 
-            BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-
-            //ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file));
-            //oos.writeObject(message);
-            //oos.writeObject(message);
-            bw.write(result+"\n");
-            bw.write(result+"\n");
-
-            System.out.println("finish write");
-
-            bw.close();
-
-            BufferedReader br = new BufferedReader(new FileReader(file));
-
-            String line = br.readLine();
-            System.out.println(line);
-
-
-            br.close();
-        }catch (FileNotFoundException e){
-            e.printStackTrace();
-        }catch (IOException e){
+        }catch (Exception e){
             e.printStackTrace();
         }
+
+
 
     }
 

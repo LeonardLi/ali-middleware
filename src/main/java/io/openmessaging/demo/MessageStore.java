@@ -4,6 +4,7 @@ import io.openmessaging.KeyValue;
 import io.openmessaging.Message;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -20,6 +21,8 @@ public class MessageStore {
 
     private volatile KeyValue properties;
 
+    //各线程共享的bucket与文件字典
+    private HashMap<String,ArrayList<String>> bucketFilesNameMap = null;
     //private Map<String, ArrayList<Message>> messageBuckets = new HashMap<>();
 
     //private ThreadLocal<HashMap<String,ObjectInputStream>> readerBuckets = new ThreadLocal<>();
@@ -33,7 +36,7 @@ public class MessageStore {
     private ThreadLocal<HashMap<String,BufferedWriter>> writerBuckets = new ThreadLocal<>();
 
     //线程独享用于读文件的readers
-    private HashMap <String,HashMap<String,List<BufferedReader>>> allThreadReaders = new HashMap<>();
+    private ThreadLocal <HashMap<String,List<BufferedReader>>> allThreadReaders = new ThreadLocal<>();
 
     //落盘函数
     public void putMessage(String bucket, Message message) {
@@ -85,35 +88,48 @@ public class MessageStore {
      * @return
      */
     public  Message pullMessage(String queue, String bucket) {
-//        HashMap<String,List<BufferedReader>> readers = allThreadReaders.get(queue);
-//        if(readers == null){
-//            readers = new HashMap<>();
-//            allThreadReaders.put(queue,readers);
-//        }
-//
-//        //同一个bucket的所有reader
-//        ArrayList<BufferedReader> bf = (ArrayList<BufferedReader>) readers.get(queue);
-//        String line = null;
-//        try{
-//            if(bf == null){
-//                File file = new File(DefaultPullConsumer.properties.getString("STORE_PATH")+"/"+queue);
-//                bf = new BufferedReader(new FileReader(file));
-//                readers.put(queue,bf);
-//            }
-//        } catch (FileNotFoundException e){
-//            e.printStackTrace();
-//        }
-//        try {
-//            line = bf.readLine();
-//        } catch (IOException e){
-//            e.printStackTrace();
-//        }
-//
-//        if(line != null && !line.equals("")){
-//            return stringToMessage(line); //String to message
-//        }
-        return null;
+        //同一个线程的所有readers
+        HashMap<String,List<BufferedReader>> readers = allThreadReaders.get();
+        if(readers == null){
+            readers = new HashMap<>();
+            allThreadReaders.set(readers);
+        }
 
+        //获取某一个bucket的所有bufferedreader
+        ArrayList<BufferedReader> bfs = (ArrayList<BufferedReader>) readers.get(bucket);
+        if(bfs == null){
+            bfs = new ArrayList<>();
+            ArrayList<String> filenames = bucketFilesNameMap.get(bucket);
+            for(String filename : filenames){
+                File file = new File(properties.getString("STORE_PATH")+"/"+filename);
+                try {
+                    BufferedReader bf = new BufferedReader(new FileReader(file));
+                    bfs.add(bf);
+                }catch (FileNotFoundException e){
+                    e.printStackTrace();
+                } catch (IOException e){
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        BufferedReader bf;
+        String line;
+        for (int i = 0 ;i < bfs.size();i++){
+            bf = bfs.get(i);
+            try {
+                line = bf.readLine();
+                if (line == null || line.length() == 0) {
+                    bf.close();
+                    bfs.remove(bf);
+                } else {
+                    return stringToMessage(line);
+                }
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        }
+        return null;
 //        ArrayList<Message> bucketList = messageBuckets.get(bucket);
 //        if (bucketList == null) {
 //            return null;
@@ -197,22 +213,31 @@ public class MessageStore {
         return message;
     }
 
-    public void initFileArray(){
-        if(bucketFiles == null){
-
-        }
+    public synchronized void initFileArray(){
+        if(bucketFilesNameMap != null) return;
+         bucketFilesNameMap = new HashMap<>();
         File[] fileArray;
         File file = new File(DefaultPullConsumer.properties.getString("STORE_PATH"));
         fileArray = file.listFiles();
+
+        //将bucket和对应的文件名存储起来
         for (int i= 0;i< fileArray.length;i++){
             if(fileArray[i].isFile()){
-                fileArray[i].getName();
-
+                String name = fileArray[i].getName();
+                String []segs =name.split(":");
+                if(bucketFilesNameMap.containsKey(segs[0])){
+                    bucketFilesNameMap.get(segs[0]).add(name);
+                }else {
+                    ArrayList<String> filenames = new ArrayList<>();
+                    filenames.add(name);
+                    bucketFilesNameMap.put(segs[0], filenames);
+                }
             }
         }
+        return;
     }
 
-    public  void setProperties(KeyValue properties) {
+    public void setProperties(KeyValue properties) {
         if(this.properties == null){
             this.properties = properties;
         }
