@@ -51,12 +51,23 @@ public class DefaultPullConsumer implements PullConsumer {
         if (bucketList.size() == 0 || queue == null){
             return null;
         }
-        for (int i = 0; i < bucketList.size(); i++){
-            Message message = messageStore.pullMessage(queue, bucketList.get(i));
+//        for (int i = 0; i < bucketList.size(); i++){
+//            Message message = messageStore.pullMessage(queue, bucketList.get(i));
+//            if(message != null) {
+//                return message;
+//            }
+//        }
+        Iterator iterator = bucketList.iterator();
+        while (iterator.hasNext()){
+            Message message = messageStore.pullMessage(queue, String.valueOf(iterator.next()));
+            if(message == null) {
+                iterator.remove();
+            }
             if(message != null) {
                 return message;
             }
         }
+
         return null;
 
     }
