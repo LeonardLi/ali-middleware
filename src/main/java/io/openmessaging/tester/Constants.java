@@ -3,6 +3,8 @@ package io.openmessaging.tester;
 public class Constants {
 
     public final static String STORE_PATH = System.getProperty("store.path", "/Users/fish/Documents/classes/8/ali-middleware/code/test");
+    //public final static String STORE_PATH = System.getProperty("store.path", "/home/cloudteam/files");
+
     public final static int PRO_NUM = Integer.valueOf(System.getProperty("pro.num", "10"));
     public final static int CON_NUM = Integer.valueOf(System.getProperty("con.num", "10"));
     public final static String PRO_PRE = System.getProperty("pro.pre","PRODUCER_");

@@ -83,9 +83,11 @@ public class ConsumerTester {
                         throw new Exception("Queue or Topic name is empty");
                     }
                     String body = new String(message.getBody());
+                    //if(message.properties().getString("PRO_OFFSET") == null) throw new RuntimeException("fail");
                     int index = body.lastIndexOf("_");
                     String producer = body.substring(0, index);
                     int offset = Integer.parseInt(body.substring(index + 1));
+                    //logger.error("map {}, producer {}, offset {}, queOrTopic {}",offsets.get(queueOrTopic),producer,offset,queueOrTopic);
                     if (offset != offsets.get(queueOrTopic).get(producer)) {
                         logger.error("Offset not equal expected:{} actual:{} producer:{} queueOrTopic:{}",
                                 offsets.get(producer), offset, producer, queueOrTopic);
@@ -122,7 +124,6 @@ public class ConsumerTester {
         }
         int pullNum = 0;
         for (int i = 0; i < ts.length; i++) {
-            System.out.println(((ConsumerTask)ts[i]).getPullNum());
             pullNum += ((ConsumerTask)ts[i]).getPullNum();
         }
         long end = System.currentTimeMillis();

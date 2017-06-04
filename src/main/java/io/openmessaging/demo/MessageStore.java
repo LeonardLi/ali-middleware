@@ -78,11 +78,14 @@ public class MessageStore {
         BufferedWriter bw =  writers.get(bucket);
         try{
             if (bw == null){
+
                 File file = new File(properties.getString("STORE_PATH")+"/"+bucket+":"+ Thread.currentThread().hashCode());
+
                 if(!file.exists()){
                     file.createNewFile();
                 }
-                bw = new BufferedWriter(new FileWriter(file));
+                bw = new BufferedWriter(new FileWriter(file));//4M buffersize
+
                 writers.put(bucket,bw);
             }
         } catch(IOException e){
@@ -265,18 +268,33 @@ public class MessageStore {
         StringBuilder result= new StringBuilder(300);
         //header不可能为空，必有topic或者queue
         for(String key: message.headers().keySet()){
-            result.append(key)
-                    .append(":")
-                    .append(((DefaultKeyValue)message.headers()).get(key))
-                    .append(",");
+
+            //result.append(key.charAt(0)+":"+((DefaultKeyValue)message.headers()).get(key)+",");
+            String value = ((DefaultKeyValue)message.headers()).get(key);
+            if('T' == key.charAt(0)|| 'Q'== key.charAt(0)){
+                value = value.substring(6);
+            }
+
+            result.append(key.charAt(0))
+                    .append(':')
+                    .append(value)
+                    .append(',');
+
         }
-        result.append(";");
+        result.append(';');
         //properties可能为空
         if(message.properties() !=null ){
             for(String key: message.properties().keySet()){
-                result.append(key+":")
-                        .append(((DefaultKeyValue)message.properties()).get(key))
-                        .append(",");
+
+                String value = ((DefaultKeyValue)message.properties()).get(key);
+                if('P' ==  key.charAt(0)){
+                    value = value.substring(8);
+                    key = "P";
+                }
+                result.append(key)
+                        .append(':')
+                        .append(value)
+                        .append(',');
             }
         }
         result.append(";");
@@ -288,16 +306,19 @@ public class MessageStore {
     private Message stringToMessage(String line){
         String[] segments = line.split(";");
         DefaultBytesMessage message = new DefaultBytesMessage("".getBytes());
-        String[] headerKvs= null;
-        String[] propertiesKvs = null;
+        String[] headerKvs;
+        String[] propertiesKvs;
 
-        for(int i=0;i<segments.length;i++){
+        for(int i=0;i < segments.length;i++){
             if(0 == i){
                 //必然有header故不再检验
                 headerKvs = segments[0].split(",");
                 for(String kvs : headerKvs){
                     String[] kv = kvs.split(":");
-                    message.putHeaders(kv[0],kv[1]);
+                    if('T' == kv[0].charAt(0)) message.putHeaders("Topic","TOPIC_"+kv[1]);
+                    else if('M' == kv[0].charAt(0)) message.putHeaders("MessageId",kv[1]);
+                    else if('Q' == kv[0].charAt(0)) message.putHeaders("Queue","QUEUE_"+kv[1]);
+                    else throw new RuntimeException("undefined key");
                 }
             }
             if(1 == i) {
@@ -305,7 +326,8 @@ public class MessageStore {
                     propertiesKvs = segments[1].split(",");
                     for(String kvs : propertiesKvs){
                         String[] kv = kvs.split(":");
-                        message.putProperties(kv[0],kv[1]);
+                        if('P' == kv[0].charAt(0)) message.putProperties("PRO_OFFSET","PRODUCER"+kv[1]);
+                        else message.putProperties(kv[0],kv[1]);
                     }
                 }
             }
@@ -328,6 +350,7 @@ public class MessageStore {
         for (int i= 0;i< fileArray.length;i++){
             if(fileArray[i].isFile()){
                 String name = fileArray[i].getName();
+                //logger.info(name+" Size :"+fileArray[i].length());
                 String []segs =name.split(":");
                 if(bucketFilesNameMap.containsKey(segs[0])){
                     bucketFilesNameMap.get(segs[0]).add(name);
