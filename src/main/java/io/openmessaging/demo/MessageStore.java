@@ -135,7 +135,10 @@ public class MessageStore {
 
         if (bucketT.get() == null || !bucketT.get().equals(bucket)) {
             bucketT.set(bucket);
-            filenames = bucketFilesNameMap.get(bucket);
+            filenames = new ArrayList<>();
+            for (String name : bucketFilesNameMap.get(bucket)) {
+                filenames.add(name);
+            }
             filenamesT.set(filenames);
         }
 
