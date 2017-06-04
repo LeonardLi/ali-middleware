@@ -182,7 +182,7 @@ public class MessageStore {
             //result.append(key.charAt(0)+":"+((DefaultKeyValue)message.headers()).get(key)+",");
             String value = ((DefaultKeyValue)message.headers()).get(key);
             if('T' == key.charAt(0)|| 'Q'== key.charAt(0)){
-                value = value.substring(value.indexOf('_')+1);
+                value = value.substring(6);
             }
 
             result.append(key.charAt(0))
@@ -194,9 +194,14 @@ public class MessageStore {
         //properties可能为空
         if(message.properties() !=null ){
             for(String key: message.properties().keySet()){
+                String value = ((DefaultKeyValue)message.properties()).get(key);
+                if('P' ==  key.charAt(0)){
+                    value = value.substring(8);
+                    key = "P";
+                }
                 result.append(key)
                         .append(':')
-                        .append(((DefaultKeyValue)message.properties()).get(key))
+                        .append(value)
                         .append(',');
             }
         }
@@ -229,7 +234,8 @@ public class MessageStore {
                     propertiesKvs = segments[1].split(",");
                     for(String kvs : propertiesKvs){
                         String[] kv = kvs.split(":");
-                        message.putProperties(kv[0],kv[1]);
+                        if('P' == kv[0].charAt(0)) message.putHeaders("PRO_OFFSET","PRODUCER"+kv[1]);
+                        else message.putProperties(kv[0],kv[1]);
                     }
                 }
             }

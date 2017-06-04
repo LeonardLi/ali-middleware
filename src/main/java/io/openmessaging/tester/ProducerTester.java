@@ -17,14 +17,17 @@ public class ProducerTester {
     static AtomicInteger state = new AtomicInteger(0);
     static String errorMessage = "";
 
+
     static class ProducerTask extends Thread {
         String label = Thread.currentThread().getName();
         Random random = new Random();
         Producer producer = null;
+        int PRO_MAX = 0;
         int sendNum = 0;
         Map<String, Integer> offsets = new HashMap<>();
-        public ProducerTask(String label) {
+        public ProducerTask(String label,int PRO_MAX) {
             this.label = label;
+            this.PRO_MAX = PRO_MAX;
             init();
         }
 
@@ -63,12 +66,14 @@ public class ProducerTester {
                         queueOrTopic = "TOPIC_" + random.nextInt(10);
                         message = producer.createBytesMessageToTopic(queueOrTopic, (label + "_" + offsets.get(queueOrTopic)).getBytes());
                     }
-
+                    message.putHeaders("MessageId","ajsdfasdkf");
+                    message.putProperties("PRO_OFFSET","PRODUCER4_13702");
+                    //message.putProperties("")
                     logger.debug("queueOrTopic:{} offset:{}", queueOrTopic, label + "_" + offsets.get(queueOrTopic));
                     offsets.put(queueOrTopic, offsets.get(queueOrTopic) + 1);
                     producer.send(message);
                     sendNum++;
-                    if (sendNum >= Constants.PRO_MAX) {
+                    if (sendNum >= (PRO_MAX == 0 ? Constants.PRO_MAX:PRO_MAX)) {
                         break;
                     }
                 } catch (Exception e) {
@@ -84,7 +89,7 @@ public class ProducerTester {
     public static void main(String[] args) throws Exception {
         Thread[] ts = new Thread[Constants.PRO_NUM];
         for (int i = 0; i < ts.length; i++) {
-            ts[i] = new ProducerTask(Constants.PRO_PRE + i);
+            ts[i] = new ProducerTask(Constants.PRO_PRE + i,Integer.valueOf(args[0]));
         }
         long start = System.currentTimeMillis();
         for (int i = 0; i < ts.length; i++) {
