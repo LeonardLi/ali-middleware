@@ -234,7 +234,7 @@ public class MessageStore {
                     propertiesKvs = segments[1].split(",");
                     for(String kvs : propertiesKvs){
                         String[] kv = kvs.split(":");
-                        if('P' == kv[0].charAt(0)) message.putHeaders("PRO_OFFSET","PRODUCER"+kv[1]);
+                        if('P' == kv[0].charAt(0)) message.putProperties("PRO_OFFSET","PRODUCER"+kv[1]);
                         else message.putProperties(kv[0],kv[1]);
                     }
                 }

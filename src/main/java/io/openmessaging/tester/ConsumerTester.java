@@ -83,6 +83,7 @@ public class ConsumerTester {
                         throw new Exception("Queue or Topic name is empty");
                     }
                     String body = new String(message.getBody());
+                    //if(message.properties().getString("PRO_OFFSET") == null) throw new RuntimeException("fail");
                     int index = body.lastIndexOf("_");
                     String producer = body.substring(0, index);
                     int offset = Integer.parseInt(body.substring(index + 1));
