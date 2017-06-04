@@ -114,7 +114,10 @@ public class MessageStore {
     public  Message pullMessage(String queue, String bucket) {
         ArrayList<String> filenames = filenamesT.get();
         if (filenames == null) {
-            filenames = bucketFilesNameMap.get(bucket);
+            filenames = new ArrayList<>();
+            for (String name : bucketFilesNameMap.get(bucket)) {
+                filenames.add(name);
+            }
             filenamesT.set(filenames);
         }
 //        if (filenames.size() == 0) {
