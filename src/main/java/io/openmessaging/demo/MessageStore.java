@@ -62,7 +62,7 @@ public class MessageStore {
         BufferedWriter bw =  writers.get(bucket);
         try{
             if (bw == null){
-                File file = new File(properties.getString("STORE_PATH")+"/"+bucket+":"+Thread.currentThread().hashCode());
+                File file = new File(properties.getString("STORE_PATH")+"/"+bucket+":"+ Thread.currentThread().hashCode());
                 if(!file.exists()){
                     file.createNewFile();
                 }
