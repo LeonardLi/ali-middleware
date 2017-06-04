@@ -1,5 +1,7 @@
 package io.openmessaging.demo;
 
+import com.sun.org.apache.xerces.internal.impl.dv.xs.BooleanDV;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import io.openmessaging.KeyValue;
 import io.openmessaging.Message;
 import org.slf4j.Logger;
@@ -39,6 +41,20 @@ public class MessageStore {
 
     //线程独享用于读文件的readers
     private HashMap <String,HashMap<String,List<BufferedReader>>> allThreadReaders = new HashMap<>();
+
+    private ThreadLocal<char[] > bufferT = new ThreadLocal<>();
+
+//    private ThreadLocal<String> nameT = new ThreadLocal<>();
+
+    private ThreadLocal<ArrayList<String>> filenamesT = new ThreadLocal<>();
+
+    private ThreadLocal<Integer> indexT = new ThreadLocal<>();
+
+    private ThreadLocal<Integer> fileLengthT = new ThreadLocal<>();
+
+    private ThreadLocal<Boolean> isEndT = new ThreadLocal<>();
+
+    private ThreadLocal<String> bucketT = new ThreadLocal<>();
 
     /**
      * 落盘函数
@@ -93,53 +109,126 @@ public class MessageStore {
      * @return
      */
     public  Message pullMessage(String queue, String bucket) {
-        //同一个线程的所有readers
-        HashMap<String,List<BufferedReader>> readers = allThreadReaders.get(queue);
-        if(readers == null){
-            readers = new HashMap<>();
-            allThreadReaders.put(queue,readers);
+        ArrayList<String> filenames = filenamesT.get();
+        if (filenames == null) {
+            filenames = bucketFilesNameMap.get(bucket);
+            filenamesT.set(filenames);
+        }
+//        if (filenames.size() == 0) {
+//            return null;
+//        }
+        char[] buffer = bufferT.get();
+        if (buffer == null) {
+            buffer = new char[4*1024*1024];
+            bufferT.set(buffer);
+        }
+
+        if (isEndT.get() == null) {
+            isEndT.set(true);
+        }
+
+        if (bucketT.get() == null || !bucketT.get().equals(bucket)) {
+            bucketT.set(bucket);
+            filenames = bucketFilesNameMap.get(bucket);
+            filenamesT.set(filenames);
         }
 
 
-        //获取某一个bucket的所有bufferedreader
-        ArrayList<BufferedReader> bfs = (ArrayList<BufferedReader>) readers.get(bucket);
-        if(bfs == null){
-            bfs = new ArrayList<>();
-            ArrayList<String> filenames = bucketFilesNameMap.get(bucket);
-            for(String filename : filenames){
-                File file = new File(properties.getString("STORE_PATH")+"/"+filename);
-                try {
-                    BufferedReader bf = new BufferedReader(new FileReader(file));
-                    bfs.add(bf);
-                }catch (FileNotFoundException e){
-                    e.printStackTrace();
-                } catch (IOException e){
-                    e.printStackTrace();
+        try {
+            while (true) {
+                if (isEndT.get()) {
+                    if (filenames.size() == 0) {
+                        return null;
+                    }
+                    String filename = filenames.get(0);
+                    File file = new File(properties.getString("STORE_PATH") + "/" + filename);
+                    BufferedReader bf = new BufferedReader(new FileReader(file), 4 * 1024 * 1024);
+                    //设置文件长度
+                    fileLengthT.set(bf.read(buffer));
+//                    nameT.set(filename);
+                    // 移除文件
+                    filenames.remove(0);
+                    indexT.set(0);
+                    bf.close();
+                    isEndT.set(false);
                 }
-            }
-            readers.put(bucket,bfs);
-        }
-
-        BufferedReader bf;
-        String line;
-        for (int i = 0 ;i < bfs.size();i++){
-            bf = bfs.get(i);
-            try {
-                line = bf.readLine();
-                //System.out.println(line);
-                if (line == null || line.length() == 0) {
+                int len = fileLengthT.get();
+                Integer index = indexT.get();
+                // 已经读完了
+                if (index == len) {
+                    isEndT.set(true);
                     continue;
-                    //bf.close();
-                    //bfs.remove(bf);
-                } else {
-                    //logger.error(line);
-                    return stringToMessage(line);
                 }
-            }catch(IOException e){
-                e.printStackTrace();
+                // 读文件
+                StringBuilder sb = new StringBuilder();
+                for (int i = index; i < len; i++) {
+                    if (buffer[i] != '\n') {
+                        sb.append(buffer[i]);
+                    }
+                    // 到了行末
+                    else {
+                        index = i + 1;
+                        indexT.set(index);
+                        break;
+                    }
+                }
+
+                String line = sb.toString();
+//                System.out.println(line);
+//                System.out.println(line);
+                return stringToMessage(line);
             }
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
         }
         return null;
+
+
+//        //获取某一个bucket的所有bufferedreader
+//        ArrayList<BufferedReader> bfs = (ArrayList<BufferedReader>) readers.get(bucket);
+//        if(bfs == null){
+//            bfs = new ArrayList<>();
+//            ArrayList<String> filenames = bucketFilesNameMap.get(bucket);
+//            for(String filename : filenames){
+//                File file = new File(properties.getString("STORE_PATH")+"/"+filename);
+//                try {
+//                    BufferedReader bf = new BufferedReader(new FileReader(file), 4096*128);
+//                    bfs.add(bf);
+//                }catch (FileNotFoundException e){
+//                    e.printStackTrace();
+//                } catch (IOException e){
+//                    e.printStackTrace();
+//                }
+//            }
+//            readers.put(bucket,bfs);
+//        }
+//
+//        BufferedReader bf;
+//        String line;
+//        for (int i = 0 ;i < bfs.size();i++){
+//            bf = bfs.get(i);
+//
+//            try {
+//                line = bf.readLine();
+//
+//                //System.out.println(line);
+//                if (line == null || line.length() == 0) {
+//                    continue;
+//                    //bf.close();
+//                    //bfs.remove(bf);
+//                } else {
+//                    //logger.error(line);
+//                    return stringToMessage(line);
+//                }
+//            }catch(IOException e){
+//                e.printStackTrace();
+//            }
+//        }
+//        return null;
 //        ArrayList<Message> bucketList = messageBuckets.get(bucket);
 //        if (bucketList == null) {
 //            return null;

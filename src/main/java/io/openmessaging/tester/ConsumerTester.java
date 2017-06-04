@@ -122,6 +122,7 @@ public class ConsumerTester {
         }
         int pullNum = 0;
         for (int i = 0; i < ts.length; i++) {
+            System.out.println(((ConsumerTask)ts[i]).getPullNum());
             pullNum += ((ConsumerTask)ts[i]).getPullNum();
         }
         long end = System.currentTimeMillis();
