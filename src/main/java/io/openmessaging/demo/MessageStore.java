@@ -62,11 +62,13 @@ public class MessageStore {
         BufferedWriter bw =  writers.get(bucket);
         try{
             if (bw == null){
+                Random random = new Random();
+                int a = random.nextInt();
                 File file = new File(properties.getString("STORE_PATH")+"/"+bucket+":"+Thread.currentThread().hashCode());
                 if(!file.exists()){
                     file.createNewFile();
                 }
-                bw = new BufferedWriter(new FileWriter(file),4194304);//4M buffersize
+                bw = new BufferedWriter(new FileWriter(file));//4M buffersize
 
                 writers.put(bucket,bw);
             }
@@ -177,13 +179,25 @@ public class MessageStore {
         StringBuilder result= new StringBuilder(300);
         //header不可能为空，必有topic或者queue
         for(String key: message.headers().keySet()){
-            result.append(key+":"+((DefaultKeyValue)message.headers()).get(key)+",");
+            //result.append(key.charAt(0)+":"+((DefaultKeyValue)message.headers()).get(key)+",");
+            String value = ((DefaultKeyValue)message.headers()).get(key);
+            if('T' == key.charAt(0)|| 'Q'== key.charAt(0)){
+                value = value.substring(value.indexOf('_')+1);
+            }
+
+            result.append(key.charAt(0))
+                    .append(':')
+                    .append(value)
+                    .append(',');
         }
-        result.append(";");
+        result.append(';');
         //properties可能为空
         if(message.properties() !=null ){
             for(String key: message.properties().keySet()){
-                result.append(key+":"+((DefaultKeyValue)message.properties()).get(key)+",");
+                result.append(key)
+                        .append(':')
+                        .append(((DefaultKeyValue)message.properties()).get(key))
+                        .append(',');
             }
         }
         result.append(";");
@@ -195,16 +209,19 @@ public class MessageStore {
     private Message stringToMessage(String line){
         String[] segments = line.split(";");
         DefaultBytesMessage message = new DefaultBytesMessage("".getBytes());
-        String[] headerKvs= null;
-        String[] propertiesKvs = null;
+        String[] headerKvs;
+        String[] propertiesKvs;
 
-        for(int i=0;i<segments.length;i++){
+        for(int i=0;i < segments.length;i++){
             if(0 == i){
                 //必然有header故不再检验
                 headerKvs = segments[0].split(",");
                 for(String kvs : headerKvs){
                     String[] kv = kvs.split(":");
-                    message.putHeaders(kv[0],kv[1]);
+                    if('T' == kv[0].charAt(0)) message.putHeaders("Topic","TOPIC_"+kv[1]);
+                    else if('M' == kv[0].charAt(0)) message.putHeaders("MessageId",kv[1]);
+                    else if('Q' == kv[0].charAt(0)) message.putHeaders("Queue","QUEUE_"+kv[1]);
+                    else throw new RuntimeException("undefined key");
                 }
             }
             if(1 == i) {

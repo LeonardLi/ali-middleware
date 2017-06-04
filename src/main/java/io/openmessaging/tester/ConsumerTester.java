@@ -86,6 +86,7 @@ public class ConsumerTester {
                     int index = body.lastIndexOf("_");
                     String producer = body.substring(0, index);
                     int offset = Integer.parseInt(body.substring(index + 1));
+                    //logger.error("map {}, producer {}, offset {}, queOrTopic {}",offsets.get(queueOrTopic),producer,offset,queueOrTopic);
                     if (offset != offsets.get(queueOrTopic).get(producer)) {
                         logger.error("Offset not equal expected:{} actual:{} producer:{} queueOrTopic:{}",
                                 offsets.get(producer), offset, producer, queueOrTopic);
